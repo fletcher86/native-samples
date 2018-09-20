@@ -1,0 +1,20 @@
+plugins {
+    id 'swift-application'
+}
+
+application {
+    operatingSystems = [
+        objects.named(OperatingSystemFamily, OperatingSystemFamily.LINUX),
+        objects.named(OperatingSystemFamily, OperatingSystemFamily.MACOS)
+    ]
+    binaries.configureEach { 
+        dependencies { 
+            // TODO: Replace with query for operating system family
+            if (targetPlatform.operatingSystem.macOsX) {
+                implementation project(':macos-console')
+            } else {
+                implementation project(':linux-console')
+            }
+        }
+    }
+}

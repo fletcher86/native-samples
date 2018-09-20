@@ -1,0 +1,13 @@
+include("samples-dev")
+
+includeBuild("samples-dev/plugins")
+
+pluginManagement {
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id.startsWith("org.gradle.samples.")) {
+                useModule("org.gradle.samples.plugins:plugins:1.0")
+            }
+        }
+    }
+}

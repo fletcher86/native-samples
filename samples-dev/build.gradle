@@ -1,0 +1,659 @@
+import org.gradle.sample.plugins.generators.CppLibraryTemplate
+import org.gradle.sample.plugins.generators.SourceCopyTask
+import org.gradle.sample.plugins.generators.SwiftLibraryTemplate
+import org.gradle.samples.plugins.generators.GitRepoTask
+
+plugins {
+    id "groovy"
+    id "idea"
+    id "org.gradle.samples.generators"
+}
+
+sourceCompatibility = 1.8
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    testImplementation gradleTestKit()
+    testImplementation localGroovy()
+    testImplementation("org.spockframework:spock-core:1.1-groovy-2.4") {
+        exclude group: "org.codehaus.groovy"
+    }
+    testImplementation "com.atlassian.commonmark:commonmark:0.10.0"
+}
+
+def supportedLanguages = [file("../swift"), file("../cpp"), file("../c")]
+
+test {
+    maxParallelForks = gradle.startParameter.maxWorkerCount
+    inputs.files files(supportedLanguages).asFileTree.matching { PatternFilterable pattern ->
+        pattern.exclude "**/build", "**/.gradle", "**/*.xcworkspace", "**/*.xcodeproj", "**/repo"
+    }
+}
+
+task cleanMavenRepo(type: Delete) {
+    delete file("../cpp/repo")
+}
+
+tasks.cleanSamples {
+    dependsOn cleanMavenRepo
+}
+
+tasks.clean {
+    dependsOn cleanSamples, cleanMavenRepo
+}
+
+def cppUtilsLib = CppLibraryTemplate.of("cpp-lib-with-api-dep", "utilities")
+def cppListLib = CppLibraryTemplate.of("cpp-lib", "list")
+
+def swiftUtilsLib = SwiftLibraryTemplate.of("swift-lib-with-api-dep", "Utilities")
+def swiftListLib = SwiftLibraryTemplate.of("swift-lib", "List")
+
+samples {
+    externalRepos.register("nativeSamplesCppLibrary") {
+        repoUrl = "git@github.com:gradle/native-samples-cpp-library.git"
+        copySource {
+            project(".").fromTemplate("cpp-build-with-list-and-utilities-libraries")
+            libProject("list").fromTemplate(cppListLib)
+            libProject("utilities").fromTemplate(cppUtilsLib)
+        }
+
+        def brokenCode = """// BUG: i = 1 should be i = 0
+    for (int i = 1; i < source.size(); ++i) {"""
+        def goodCode = 'for (int i = 0; i < source.size(); ++i) {'
+
+        change { ch ->
+            changeContent("utilities/src/main/cpp/join.cpp", goodCode, brokenCode)
+            tag("1.0")
+            message("initial version")
+        }
+        change { ch ->
+            changeContent("utilities/src/main/cpp/join.cpp", brokenCode, goodCode)
+            changeContent("build.gradle", "version = '1.0'", "version = '1.1'")
+            tag("1.1")
+            message("fixed bug")
+        }
+    }
+
+    externalRepos.register("nativeSamplesSwiftLibrary") {
+        repoUrl = "git@github.com:gradle/native-samples-swift-library.git"
+        copySource {
+            project(".").fromTemplate("swift-build-with-list-and-utilities-libraries")
+            libProject("list").fromTemplate(swiftListLib)
+            libProject("utilities").fromTemplate(swiftUtilsLib)
+        }
+        def goodCode = "var i = 0"
+        def badCode = """// BUG: i = 1 should be i = 0
+        var i = 1"""
+        change { ch ->
+            changeContent("utilities/src/main/swift/Util.swift", goodCode, badCode)
+            tag("1.0")
+            message("initial version")
+        }
+        change { ch ->
+            changeContent("utilities/src/main/swift/Util.swift", badCode, goodCode)
+            changeContent("build.gradle", "version = '1.0'", "version = '1.1'")
+            tag("1.1")
+            message("fixed bug")
+        }
+    }
+}
+
+task cppTransitiveDependencies(type: SourceCopyTask) {
+    sampleDir = file("../cpp/transitive-dependencies")
+
+    project(".").buildRoot()
+    appProject("app").fromTemplate("cpp-app")
+    libProject("utilities").fromTemplate(cppUtilsLib)
+    libProject("list").fromTemplate(cppListLib)
+}
+
+task cppApplication(type: SourceCopyTask) {
+    sampleDir = file("../cpp/application")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("cpp-app")
+    appProject(".").fromTemplate(cppUtilsLib)
+    appProject(".").fromTemplate(cppListLib)
+}
+
+task cppLibrary(type: SourceCopyTask) {
+    sampleDir = file("../cpp/simple-library")
+
+    libProject(".").buildRoot()
+    libProject(".").fromTemplate(cppListLib)
+}
+
+
+task cppLibraryWithTests(type: SourceCopyTask) {
+    sampleDir = file("../cpp/library-with-tests")
+
+    libProject(".").buildRoot()
+    libProject(".").fromTemplate(cppListLib)
+    project("build-wrapper-plugin").buildRoot()
+    project("build-wrapper-plugin").fromTemplate("build-wrapper-plugin")
+}
+
+task cppBinaryDependencies(type: SourceCopyTask) {
+    sampleDir = file("../cpp/binary-dependencies")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("cpp-app")
+    appProject(".").fromTemplate(cppUtilsLib)
+}
+
+task cppPrebuiltBinaries(type: SourceCopyTask) {
+    sampleDir = file("../cpp/prebuilt-binaries")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("cpp-app")
+    appProject(".").fromTemplate(cppUtilsLib)
+}
+
+task cppCmakeLibrary(type: SourceCopyTask) {
+    sampleDir = file("../cpp/cmake-library") 
+
+    project(".").buildRoot()
+    appProject("app").fromTemplate("cpp-app")
+    libProject("utilities").fromTemplate(cppUtilsLib)
+    cmakeProject("list", "list").fromTemplate(cppListLib)
+    project("build-wrapper-plugin").buildRoot()
+    project("build-wrapper-plugin").fromTemplate("build-wrapper-plugin")
+    project("custom-publication-plugin").buildRoot()
+    project("custom-publication-plugin").fromTemplate("custom-publication-plugin")
+}
+
+task cppAutotoolsLibrary(type: SourceCopyTask) {
+    sampleDir = file("../cpp/autotools-library")
+
+    appProject(".").buildRoot()
+    appProject("app").fromTemplate("cpp-app-with-curl")
+    appProject("app").fromTemplate(cppUtilsLib)
+    appProject("app").fromTemplate(cppListLib)
+    project("build-wrapper-plugin").buildRoot()
+    project("build-wrapper-plugin").fromTemplate("build-wrapper-plugin")
+}
+
+task cppCmakeSourceDepedencies(type: SourceCopyTask) {
+    sampleDir = file("../cpp/cmake-source-dependencies")
+
+    cmakeProject("app").buildRoot()
+    cmakeProject("app").fromTemplate("cpp-app-cmake-build")
+    cmakeProject("app").fromTemplate("cpp-app")
+    cmakeProject("utilities").buildRoot()
+    cmakeProject("utilities").fromTemplate("cpp-utilities-lib-cmake-build")
+    cmakeProject("utilities").fromTemplate(cppUtilsLib)
+    cmakeProject("list").buildRoot()
+    cmakeProject("list").fromTemplate("cpp-list-lib-cmake-build")
+    cmakeProject("list").fromTemplate(cppListLib)
+    project("build-wrapper-plugin").buildRoot()
+    project("build-wrapper-plugin").fromTemplate("build-wrapper-plugin")
+}
+
+task cppCompositeBuild(type: SourceCopyTask) {
+    sampleDir = file("../cpp/composite-build")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("cpp-app")
+    libProject("utilities-library").fromTemplate(cppUtilsLib)
+    libProject("list-library").fromTemplate(cppListLib)
+}
+
+task cppSourceDependencies(type: SourceCopyTask) {
+    sampleDir = file("../cpp/source-dependencies")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("cpp-app")
+}
+
+task cppBranchDependencies(type: SourceCopyTask) {
+    sampleDir = file("../cpp/dependency-on-upstream-branch")
+
+    appProject("app").buildRoot()
+    appProject("app").fromTemplate("cpp-app")
+    libProject("utilities-library").buildRoot()
+    libProject("utilities-library").fromTemplate(cppUtilsLib)
+    libProject("utilities-library").fromTemplate("cpp-utilities-lib-build")
+    libProject("list-library").buildRoot()
+    libProject("list-library").fromTemplate(cppListLib)
+    libProject("list-library").fromTemplate("cpp-list-lib-build")
+}
+
+task cppOSDependencies(type: SourceCopyTask) {
+    sampleDir = file("../cpp/operating-system-specific-dependencies")
+
+    project(".").buildRoot()
+    appProject("app").fromTemplate("cpp-app-uses-logger")
+    appProject("app").fromTemplate("cpp-logger-uses-console")
+    appProject("app").fromTemplate(cppUtilsLib)
+    appProject("app").fromTemplate(cppListLib)
+    libProject("ansiConsole").fromTemplate(CppLibraryTemplate.of("cpp-ansi-console-lib", "ansi_console"))
+    libProject("winConsole").fromTemplate(CppLibraryTemplate.of("cpp-windows-console-lib", "win_console"))
+}
+
+task cppSourceGeneration(type: SourceCopyTask) {
+    sampleDir = file("../cpp/source-generation")
+
+    project(".").buildRoot()
+}
+
+task cppStaticLibrary(type: SourceCopyTask) {
+    sampleDir = file("../cpp/static-library")
+
+    project(".").buildRoot()
+    appProject("app").fromTemplate("cpp-app")
+    staticLibProject("utilities").fromTemplate(cppUtilsLib)
+    libProject("list").fromTemplate(cppListLib)
+}
+
+task cppSwiftPackageManager(type: SourceCopyTask) {
+    sampleDir = file("../cpp/swift-package-manager")
+
+    project(".").buildRoot()
+    swiftPMProject(".", "App").fromTemplate("cpp-app")
+    swiftPMProject(".", "Utilities").fromTemplate(cppUtilsLib)
+    swiftPMProject(".", "List").fromTemplate(cppListLib)
+}
+
+task cppSwiftPackageManagerPublish(type: SourceCopyTask) {
+    sampleDir = file("../cpp/swift-package-manager-publish")
+
+    swiftPMProject("app", "App").fromTemplate("cpp-app")
+
+    project("release-plugin").buildRoot()
+    project("release-plugin").fromTemplate("release-plugin")
+
+    libProject("list-library").buildRoot()
+    libProject("list-library").noPrivateHeaderDir()
+    libProject("list-library").fromTemplate("cpp-list-lib-build-with-release")
+    libProject("list-library").fromTemplate(cppListLib)
+
+    libProject("utilities-library").buildRoot()
+    libProject("utilities-library").noPrivateHeaderDir()
+    libProject("utilities-library").fromTemplate("cpp-utilities-lib-build-with-release")
+    libProject("utilities-library").fromTemplate(cppUtilsLib)
+}
+
+task cppProvisionableToolChains(type: SourceCopyTask) {
+    sampleDir = file("../cpp/provisionable-tool-chains")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("cpp-app")
+    appProject(".").fromTemplate(cppUtilsLib)
+    appProject(".").fromTemplate(cppListLib)
+    appProject(".").fromTemplate("cpp-provisionable-tool-chains-build")
+}
+
+task cApplication(type: SourceCopyTask) {
+    sampleDir = file("../c/application")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("c-app")
+}
+
+task swiftApplication(type: SourceCopyTask) {
+    sampleDir = file("../swift/application")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("swift-app")
+    appProject(".").fromTemplate(swiftUtilsLib)
+    appProject(".").fromTemplate(swiftListLib)
+}
+
+task swiftApplicationOSDependencies(type: SourceCopyTask) {
+    sampleDir = file("../swift/operating-system-specific-dependencies")
+
+    project(".").buildRoot()
+    appProject("app").fromTemplate("swift-app")
+    appProject("app").fromTemplate("swift-app-uses-logger")
+    appProject("app").fromTemplate("swift-logger-uses-console")
+    appProject("app").fromTemplate(swiftUtilsLib)
+    appProject("app").fromTemplate(swiftListLib)
+
+    libProject("linux-console").fromTemplate(SwiftLibraryTemplate.of("swift-linux-console-lib", "LinuxLogger"))
+    libProject("macos-console").fromTemplate(SwiftLibraryTemplate.of("swift-macos-console-lib", "MacOsLogger"))
+}
+
+task swiftVersions(type: SourceCopyTask) {
+    sampleDir = file("../swift/swift-versions")
+
+    project(".").buildRoot()
+
+    appProject("swift3-app").fromTemplate("swift-app")
+    appProject("swift3-app").fromTemplate("swift-app-uses-logger")
+    appProject("swift3-app").fromTemplate(SwiftLibraryTemplate.of("swift-logger-reports-swift-version", "Logger"))
+    appProject("swift3-app").fromTemplate(SwiftLibraryTemplate.of("swift3-lib-with-api-dep", "Utilities"))
+    appProject("swift3-app").fromTemplate(swiftListLib)
+
+    appProject("swift4-app").fromTemplate("swift-app")
+    appProject("swift4-app").fromTemplate("swift-app-uses-logger")
+    appProject("swift4-app").fromTemplate(SwiftLibraryTemplate.of("swift-logger-reports-swift-version", "Logger"))
+    appProject("swift4-app").fromTemplate(SwiftLibraryTemplate.of("swift4-lib-with-api-dep", "Utilities"))
+    appProject("swift4-app").fromTemplate(swiftListLib)
+}
+
+task swiftSimpleLibrary(type: SourceCopyTask) {
+    sampleDir = file("../swift/simple-library")
+
+    libProject(".").buildRoot()
+    libProject(".").fromTemplate(swiftListLib)
+}
+
+task swiftPrebuiltBinaries(type: SourceCopyTask) {
+    sampleDir = file("../swift/prebuilt-binaries")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("swift-app")
+    appProject(".").fromTemplate(swiftUtilsLib)
+}
+
+task swiftTransitiveDependencies(type: SourceCopyTask) {
+    sampleDir = file("../swift/transitive-dependencies")
+
+    project(".").buildRoot()
+    appProject("app").fromTemplate("swift-app")
+    libProject("utilities").fromTemplate(swiftUtilsLib)
+    libProject("list").fromTemplate(swiftListLib)
+}
+
+task swiftCompositeBuild(type: SourceCopyTask) {
+    sampleDir = file("../swift/composite-build")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("swift-app")
+    libProject("utilities-library").fromTemplate(swiftUtilsLib)
+    libProject("list-library").fromTemplate(swiftListLib)
+}
+
+task swiftInjectedPlugins(type: SourceCopyTask) {
+    sampleDir = file("../swift/injected-plugins")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("swift-app")
+    libProject("repos/utilities-library").fromTemplate(swiftUtilsLib)
+    libProject("repos/list-library").fromTemplate(SwiftLibraryTemplate.of("swift-lib-unusable", "List"))
+}
+
+task swiftSourceDependencies(type: SourceCopyTask) {
+    sampleDir = file("../swift/source-dependencies")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("swift-app")
+}
+
+task swiftBranchDependencies(type: SourceCopyTask) {
+    sampleDir = file("../swift/dependency-on-upstream-branch")
+
+    appProject("app").buildRoot()
+    appProject("app").fromTemplate("swift-app")
+    libProject("utilities-library").buildRoot()
+    libProject("utilities-library").fromTemplate(swiftUtilsLib)
+    libProject("utilities-library").fromTemplate("swift-utilities-lib-build")
+    libProject("list-library").buildRoot()
+    libProject("list-library").fromTemplate(swiftListLib)
+    libProject("list-library").fromTemplate("swift-list-lib-build")
+}
+
+task swiftSourceGeneration(type: SourceCopyTask) {
+    sampleDir = file("../swift/source-generation")
+
+    project(".").buildRoot()
+}
+
+task swiftStaticLibrary(type: SourceCopyTask) {
+    sampleDir = file("../swift/static-library")
+
+    project(".").buildRoot()
+    appProject("app").fromTemplate("swift-app")
+    libProject("utilities").fromTemplate(swiftUtilsLib)
+    libProject("list").fromTemplate(swiftListLib)
+}
+
+task swiftCppDependencies(type: SourceCopyTask) {
+    sampleDir = file("../swift/cpp-dependencies")
+
+    project(".").buildRoot()
+    staticLibProject("list").fromTemplate("cpp-lib-with-c-api")
+    appProject("app").fromTemplate(SwiftLibraryTemplate.of("swift-lib-uses-c-api", "List"))
+    appProject("app").fromTemplate(swiftUtilsLib)
+    appProject("app").fromTemplate("swift-app")
+}
+
+task swiftSwiftPackageManager(type: SourceCopyTask) {
+    sampleDir = file("../swift/swift-package-manager")
+
+    project(".").buildRoot()
+    swiftPMProject(".", "App").fromTemplate("swift-app")
+    swiftPMProject(".", "Utilities").fromTemplate(swiftUtilsLib)
+    swiftPMProject(".", "List").fromTemplate(swiftListLib)
+}
+
+task swiftSwiftPackageManagerPublish(type: SourceCopyTask) {
+    sampleDir = file("../swift/swift-package-manager-publish")
+
+    swiftPMProject("app", "App").fromTemplate("swift-app")
+
+    project("release-plugin").buildRoot()
+    project("release-plugin").fromTemplate("release-plugin")
+
+    libProject("list-library").buildRoot()
+    libProject("list-library").fromTemplate("swift-list-lib-build-with-release")
+    libProject("list-library").fromTemplate(swiftListLib)
+
+    libProject("utilities-library").buildRoot()
+    libProject("utilities-library").fromTemplate("swift-utilities-lib-build-with-release")
+    libProject("utilities-library").fromTemplate(swiftUtilsLib)
+}
+
+task swiftProvisionableToolChains(type: SourceCopyTask) {
+    sampleDir = file("../swift/provisionable-tool-chains")
+
+    appProject(".").buildRoot()
+    appProject(".").fromTemplate("swift-app")
+    appProject(".").fromTemplate(swiftUtilsLib)
+    appProject(".").fromTemplate(swiftListLib)
+    appProject(".").fromTemplate("swift-provisionable-tool-chains-build")
+}
+
+task swiftSystemLibrary(type: SourceCopyTask) {
+    sampleDir = file("../swift/system-library-as-module")
+
+    project(".").buildRoot()
+}
+
+task swiftIosApplication(type: SourceCopyTask) {
+    sampleDir = file("../swift/ios-application")
+
+    project(".").buildRoot()
+    project("ios-plugin").buildRoot()
+}
+
+task generateMinimalSwiftListRepo(type: GitRepoTask) {
+    dependsOn swiftInjectedPlugins
+    sampleDir = file("../swift/injected-plugins/repos/list-library")
+    change { ch ->
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generateMinimalSwiftUtilitiesRepo(type: GitRepoTask) {
+    dependsOn swiftInjectedPlugins
+    sampleDir = file("../swift/injected-plugins/repos/utilities-library")
+    change { ch ->
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generatePublishCppReleasePluginRepo(type: GitRepoTask) {
+    dependsOn cppSwiftPackageManagerPublish
+    sampleDir = file("../cpp/swift-package-manager-publish/release-plugin")
+    change { ch ->
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generatePublishCppListRepo(type: GitRepoTask) {
+    dependsOn cppSwiftPackageManagerPublish
+    sampleDir = file("../cpp/swift-package-manager-publish/list-library")
+}
+
+task generatePublishCppUtilitiesRepo(type: GitRepoTask) {
+    dependsOn cppSwiftPackageManagerPublish
+    sampleDir = file("../cpp/swift-package-manager-publish/utilities-library")
+}
+
+task generatePublishSwiftReleasePluginRepo(type: GitRepoTask) {
+    dependsOn swiftSwiftPackageManagerPublish
+    sampleDir = file("../swift/swift-package-manager-publish/release-plugin")
+    change { ch ->
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generatePublishSwiftListRepo(type: GitRepoTask) {
+    dependsOn swiftSwiftPackageManagerPublish
+    sampleDir = file("../swift/swift-package-manager-publish/list-library")
+}
+
+task generatePublishSwiftUtilitiesRepo(type: GitRepoTask) {
+    dependsOn swiftSwiftPackageManagerPublish
+    sampleDir = file("../swift/swift-package-manager-publish/utilities-library")
+}
+
+task generateBranchCppListRepo(type: GitRepoTask) {
+    dependsOn cppBranchDependencies
+    sampleDir = file("../cpp/dependency-on-upstream-branch/list-library")
+    change { ch ->
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generateBranchCppUtilitiesRepo(type: GitRepoTask) {
+    dependsOn cppBranchDependencies
+    sampleDir = file("../cpp/dependency-on-upstream-branch/utilities-library")
+    change { ch ->
+        changeContent("src/main/cpp/join.cpp", 'for (int i = 0; i < source.size(); ++i) {', """// BUG: i = 1 should be i = 0
+    for (int i = 1; i < source.size(); ++i) {""")
+        tag("1.0")
+        message("initial version")
+    }
+    change { ch ->
+        branch("release")
+        changeContent("build.gradle", "version = '1.0'", "version = '1.1'")
+        message("branch for release")
+    }
+    change { ch ->
+        checkout("master")
+        changeContent("build.gradle", "version = '1.0'", "version = '2.0-SNAPSHOT'")
+        message("prepare next version")
+    }
+}
+
+task generateBranchSwiftListRepo(type: GitRepoTask) {
+    dependsOn swiftBranchDependencies
+    sampleDir = file("../swift/dependency-on-upstream-branch/list-library")
+    change { ch ->
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generateBranchSwiftUtilitiesRepo(type: GitRepoTask) {
+    dependsOn swiftBranchDependencies
+    sampleDir = file("../swift/dependency-on-upstream-branch/utilities-library")
+    change { ch ->
+        changeContent("src/main/swift/Util.swift", "var i = 0", """// BUG: i = 1 should be i = 0
+        var i = 1""")
+        tag("1.0")
+        message("initial version")
+    }
+    change { ch ->
+        branch("release")
+        changeContent("build.gradle", "version = '1.0'", "version = '1.1'")
+        message("branch for release")
+    }
+    change { ch ->
+        checkout("master")
+        changeContent("build.gradle", "version = '1.0'", "version = '2.0'")
+        message("prepare next version")
+    }
+}
+
+task generateCppCmakeLibraryBuildWrapperPluginRepo(type: GitRepoTask) {
+    dependsOn cppCmakeLibrary
+    sampleDir = file("../cpp/cmake-library/build-wrapper-plugin")
+    change {
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generateCppCmakeLibraryCustomPublicationPluginRepo(type: GitRepoTask) {
+    dependsOn cppCmakeLibrary
+    sampleDir = file("../cpp/cmake-library/custom-publication-plugin")
+    change {
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generateCppCmakeSourceDependenciesPluginRepo(type: GitRepoTask) {
+    dependsOn cppCmakeSourceDepedencies
+    sampleDir = file("../cpp/cmake-source-dependencies/build-wrapper-plugin")
+    change {
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generateCppCmakeSourceDependenciesListLibraryRepo(type: GitRepoTask) {
+    dependsOn cppCmakeSourceDepedencies
+    sampleDir = file("../cpp/cmake-source-dependencies/list")
+    change {
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generateCppCmakeSourceDependenciesUtilityLibraryRepo(type: GitRepoTask) {
+    dependsOn cppCmakeSourceDepedencies
+    sampleDir = file("../cpp/cmake-source-dependencies/utilities")
+    change {
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generateCppCmakeSourceDependenciesUtilityAppRepo(type: GitRepoTask) {
+    dependsOn cppCmakeSourceDepedencies
+    sampleDir = file("../cpp/cmake-source-dependencies/app")
+    change {
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generateCppAutotoolsLibraryPluginRepo(type: GitRepoTask) {
+    dependsOn cppAutotoolsLibrary
+    sampleDir = file("../cpp/autotools-library/build-wrapper-plugin")
+    change {
+        tag("1.0")
+        message("initial version")
+    }
+}
+
+task generateCppLibraryWithTestsPluginRepo(type: GitRepoTask) {
+    dependsOn cppLibraryWithTests
+    sampleDir = file("../cpp/library-with-tests/build-wrapper-plugin")
+    change {
+        tag("1.0")
+        message("initial version")
+    }
+}

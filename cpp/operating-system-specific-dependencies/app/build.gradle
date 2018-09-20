@@ -1,0 +1,20 @@
+plugins {
+    id 'cpp-application'
+}
+
+application {
+    operatingSystems = [
+        objects.named(OperatingSystemFamily, OperatingSystemFamily.WINDOWS),
+        objects.named(OperatingSystemFamily, OperatingSystemFamily.LINUX),
+        objects.named(OperatingSystemFamily, OperatingSystemFamily.MACOS)
+    ]
+    binaries.configureEach {
+        dependencies {
+            if (targetPlatform.operatingSystem.windows) {
+                implementation project(':winConsole')
+            } else {
+                implementation project(':ansiConsole')
+            }
+        }
+    }
+}

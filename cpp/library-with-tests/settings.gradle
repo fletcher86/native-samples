@@ -1,0 +1,9 @@
+rootProject.name = "list"
+
+include("googletest")
+
+sourceControl {
+    gitRepository("build-wrapper-plugin") {
+        producesModule("org.gradle.samples:build-wrapper")
+    }
+}

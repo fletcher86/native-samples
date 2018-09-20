@@ -1,0 +1,28 @@
+plugins {
+    id 'swift-library'
+    id 'xcode'
+    id 'xctest'
+}
+
+group = 'org.gradle.swift-samples'
+
+def linuxMainWorkaround(Project project, File testDir) {
+    project.xctest {
+        source.from project.fileTree(dir: testDir, include: '**/*.swift', exclude: 'LinuxMain.swift')
+    }
+
+    if (System.properties['os.name'].equals("Linux")) {
+        // On linux, rename LinuxMain.swift -> main.swift
+        def renameLinuxMain = project.tasks.create("renameLinuxMain", Sync) {
+            from testDir
+            into temporaryDir
+            include 'LinuxMain.swift'
+            rename { 'main.swift' }        
+        }
+        project.xctest {
+            source.from renameLinuxMain
+        } 
+    }
+}
+
+linuxMainWorkaround(project, file('src/test/swift'))

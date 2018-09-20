@@ -1,0 +1,10 @@
+plugins {
+    id 'swift-library'
+}
+
+library {
+    module = "MacOsConsole"
+    operatingSystems = [
+        objects.named(OperatingSystemFamily, OperatingSystemFamily.MACOS)
+    ]
+}
