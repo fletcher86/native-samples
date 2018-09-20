@@ -39,9 +39,7 @@ project(':utilities') {
 	}
 }
 
-project(':list') { 
-	apply plugin: 'cpp-library' 
-}
+project(':list') {  apply plugin: 'cpp-library'  }
 
 // Move the build directories for all projects into a single top-level directory
 allprojects { p ->
