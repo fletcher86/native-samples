@@ -11,3 +11,11 @@ application {
         implementation 'org.gradle.cpp-samples:utilities:1.0'
     }
 }
+
+task copysrc(type: Copy) {
+	println 'COPY SOURCE'
+	from 'src/main/cpp/main.cpp'
+	into 'build/install/main/debug'
+}
+
+assemble.dependsOn copysrc
