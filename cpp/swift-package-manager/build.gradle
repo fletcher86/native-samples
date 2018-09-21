@@ -1,59 +1,58 @@
-subprojects { subproject ->
-	apply plugin: 'xcode'
+project(":list") {
+	apply plugin: "cpp"
+	model {
+		components { main(NativeLibrarySpec) }
 
-
-	group = 'org.gradle.swift-samples'
-
-
-	// Move the build directories for all projects into a single top-level directory
-	buildDir = rootProject.file("build/${subproject.name.capitalize()}")
-
-	components.withType(ProductionCppComponent) {
-		//apply plugin: 'cpp-application'
-		// By convention, source files are located in the root directory/Sources/<module>
-		source.from rootProject.file("Sources/${subproject.name.capitalize()}")
-		println 'SP: sub project: '+subproject.name + " type " + ProductionCppComponent
-	}
-	components.withType(CppLibrary) {
-		// By convention, public header files are located in the root directory/Sources/<module>/include
-		publicHeaders.from rootProject.file("Sources/${subproject.name.capitalize()}/include")
-		println 'SP: sub project: '+subproject.name + " type " + CppLibrary
-	}
-}
-
-
-
-project(':app') {
-	apply plugin: 'cpp-application'
-	application {
-		// Configure the dependencies of the executable
-		dependencies { implementation project(':utilities') }
-	}
-}
-
-project(':utilities') {
-	apply plugin: 'cpp-library'
-	library {
-		// Configure the dependencies of the library
-		dependencies { api project(':list') }
-	}
-}
-
-project(':list') {  apply plugin: 'cpp-library'  }
-
-// Move the build directories for all projects into a single top-level directory
-allprojects { p ->
-
-	println 'INSIDE: allprojects '+ p
-	// Work around for https://github.com/gradle/gradle-native/issues/376
-	// TODO: Remove this once issue has been fixed.
-	tasks.withType(AbstractLinkTask) {
-
-
-		doFirst {
-			p.projectDir.mkdirs()
+		// For any shared library binaries built with Visual C++,
+		// define the DLL_EXPORT macro
+		binaries {
+			withType(SharedLibraryBinarySpec) {
+				if (toolChain in VisualCpp) {
+					cppCompiler.define "DLL_EXPORT"
+				}
+			}
 		}
-		println "XXXcreated directory for "+p.name
 	}
+}
 
+project(":utilities") {
+	apply plugin: "cpp"
+
+	model {
+		components {
+			main(NativeLibrarySpec) {
+				sources {
+					cpp {
+						lib project: ':list', library: 'main'
+					}
+				}
+			}
+		}
+		// For any shared library binaries built with Visual C++,
+		// define the DLL_EXPORT macro
+		binaries {
+			withType(SharedLibraryBinarySpec) {
+				if (toolChain in VisualCpp) {
+					cppCompiler.define "DLL_EXPORT"
+				}
+			}
+		}
+
+	}
+}
+
+project(":app") {
+	apply plugin: "cpp"
+
+	model {
+		components {
+			main(NativeExecutableSpec) {
+				sources {
+					cpp {
+						lib project: ':utilities', library: 'main'
+					}
+				}
+			}
+		}
+	}
 }
