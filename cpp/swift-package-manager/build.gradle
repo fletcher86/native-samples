@@ -12,12 +12,12 @@ subprojects { subproject ->
 		//apply plugin: 'cpp-application'
 		// By convention, source files are located in the root directory/Sources/<module>
 		source.from rootProject.file("Sources/${subproject.name.capitalize()}")
-		println 'SP: sub project: '+subproject.name + " type " + ProductionCppComponent
+		println 'XXX SP: sub project: '+subproject.name + " type " + ProductionCppComponent
 	}
 	components.withType(CppLibrary) {
 		// By convention, public header files are located in the root directory/Sources/<module>/include
 		publicHeaders.from rootProject.file("Sources/${subproject.name.capitalize()}/include")
-		println 'SP: sub project: '+subproject.name + " type " + CppLibrary
+		println 'XXX SP: sub project: '+subproject.name + " type " + CppLibrary
 	}
 }
 
@@ -46,7 +46,7 @@ project(':list') {
 // Move the build directories for all projects into a single top-level directory
 allprojects { p ->
 
-	println 'INSIDE: allprojects '+ p
+	println 'XXX INSIDE: allprojects '+ p
 	// Work around for https://github.com/gradle/gradle-native/issues/376
 	// TODO: Remove this once issue has been fixed.
 	tasks.withType(AbstractLinkTask) {
