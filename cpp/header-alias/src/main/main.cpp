@@ -10,6 +10,7 @@
 #include "bar/bar.h"
 #include "foo/bar/bar.h"
 #include <iostream>
+#include "boost/bind/arg.hpp"
 
 main::main() {
 	// TODO Auto-generated constructor stub
