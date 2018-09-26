@@ -1,0 +1,22 @@
+plugins {
+    id 'cpp-library'
+	id 'maven-publish'
+}
+
+group='com.gradle.test'
+version='1.0'
+
+library {
+    linkage = [Linkage.STATIC, Linkage.SHARED]
+	publicHeaders.from project.files('src/main/public')
+	publicHeaders.from project.files('src/main/public/foo')
+	publicHeaders.from project.files('src/main/public/foo/bar')
+}
+
+publishing {
+	repositories {
+		maven {
+			url='../../repo'
+		}
+	}
+}

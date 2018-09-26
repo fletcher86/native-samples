@@ -1,4 +1,4 @@
-plugin {
-	id: 'cpp'
+allprojects {
+    apply plugin: 'xcode'
+    apply plugin: 'visual-studio'
 }
-
