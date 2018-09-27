@@ -1,0 +1,15 @@
+plugins {
+    id 'cpp-application'
+}
+
+application {
+    dependencies {
+        implementation project(':utilities')
+    }
+}
+
+// This shouldn't be required. App is dependent on utilities which in turn depends on
+// list. List alreadyexposed this macro which should bubble up to this app.
+tasks.withType(CppCompile) {
+	macros.put('EMPTY_CHECK', null)
+}
