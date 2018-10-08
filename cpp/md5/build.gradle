@@ -1,4 +1,10 @@
-allprojects { project ->
-    apply plugin: 'xcode'
-    apply plugin: 'visual-studio'
+plugins {
+    id 'cpp-library'
+}
+
+library {
+    linkage = [Linkage.STATIC, Linkage.SHARED]
+
+    source.from project.fileTree(dir: 'list', include: '**/*.cpp')
+    publicHeaders.from project.file('.')
 }
