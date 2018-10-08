@@ -1,0 +1,11 @@
+plugins {
+    id 'cpp-application'
+}
+
+application {
+    source.from project.fileTree(dir: '.', include: '**/*.cpp')
+
+    dependencies {
+        implementation project(':utilities')
+    }
+}

@@ -1,0 +1,10 @@
+plugins {
+    id 'cpp-library'
+}
+
+library {
+    linkage = [Linkage.STATIC, Linkage.SHARED]
+
+    source.from project.fileTree(dir: '.', include: '**/*.cpp')
+    publicHeaders.from project.file('.')
+}
