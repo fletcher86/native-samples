@@ -1,10 +1,12 @@
 plugins {
-    id 'cpp-library'
+    id 'cpp-application'
 }
 
-library {
-    linkage = [Linkage.STATIC, Linkage.SHARED]
+application {
+    source.from project.fileTree(dir: '.', include: '**/*.cpp')
+    privateHeaders.from project.file('.')
+}
 
-    source.from project.fileTree(dir: 'list', include: '**/*.cpp')
-    publicHeaders.from project.file('.')
+tasks.withType(CppCompile) {
+    macros.put('EXTERNAL_HEADER', '"main.h"')
 }
