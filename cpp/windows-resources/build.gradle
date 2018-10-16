@@ -1,29 +1,26 @@
-import org.gradle.api.file.FileTree
-import org.gradle.api.tasks.util.PatternSet
-
 plugins {
     id 'cpp-application'
 }
 
 
 application {
-   //source tree for CppCompile
+    //source tree for CppCompile
     source.from project.fileTree(dir: 'src', include: '**/*.cpp')
     privateHeaders.from project.file('src/hello/headers')
-    
-    
+
+
     binaries.whenElementFinalized { binary ->
         if (binary.targetPlatform.operatingSystemFamily.isWindows()) {
             //Register WindowsResourceCompile
             def linkerTask = binary.linkTask.get()
             def resourceTaskName = "compileResources" + binary.name.capitalize()
             def compileResources = project.tasks.register(resourceTaskName, WindowsResourceCompile) {
-                
+
                 targetPlatform = binary.targetPlatform
                 toolChain = binary.toolChain
                 includes.from project.file('src/hello/headers')
                 source.from project.fileTree(dir: 'src/hello/rc' )
-                macros.put('DLL_EXPORT', '1')
+                macros.put('_MYMACRO', 'hey_ma')
                 compilerArgs.addAll toolChain.map { NativeToolChain toolChain ->
                     List<String> compilerSpecificArgs = []
                     if (toolChain instanceof VisualCpp) {
@@ -35,10 +32,8 @@ application {
             }
 
             //linkerTask.dependsOn(resourceTaskName)
-            FileTree resourceOutputs = compileResources.get().getOutputs().getFiles().getAsFileTree().matching(new PatternSet().include(["**/*.res","**/*.obj"]));
+            FileTree resourceOutputs = compileResources.get().getOutputs().getFiles().getAsFileTree().matching(new PatternSet().include(["**/*.res", "**/*.obj"]));
             linkerTask.source(resourceOutputs)
-            //linkerTask.source(project.fileTree(dir: 'build/obj', include: ['**/*.obj','**/*.res'], exclude: '**/*.pdb'))
-
         }
     }
 }
