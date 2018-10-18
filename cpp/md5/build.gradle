@@ -8,5 +8,5 @@ application {
 }
 
 tasks.withType(CppCompile) {
-    macros.put('EXTERNAL_HEADER', '"main.h"')
+    macros.put('EXTERNAL_HEADER', '<list/main.h>')
 }
