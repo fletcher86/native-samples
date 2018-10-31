@@ -31,9 +31,11 @@ Package.resolved
 out/
 
 #eclipse files
-#**/.project
-#**/.settings
-#**/.cproject
+**/.project
+**/.settings
+**/.cproject
+**/.gitignore
+**/.autotools
 
 # Mac OS Junk
 .DS_Store
